@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hello_world">Boujour le monde</string>
+    <string name="button_text">Je suis un bouton!</string>
+    <string name="iloveandroid">J\'aime Android</string>
+    <string name="switchonoff">Allumer/Éteindre</string>
+    <string name="pressme">Appuyez sur moi</string>
+    <string name="checkthisout">Regarde ça!</string>
+    <string name="toast_message">L\'étiquette a été mise à jour.</string>
+    <string name="enter_your_name">Écrivez votre nom</string>
+    <string name="nextbtn">suivant</string>
+    <string name="welcome">Bienvenue</string>
+    <string name="thankyou">Merci</string>
+    <string name="dontcallmethat">Ne m\'appelle pas comme ça</string>
+    <string name="app_name">Lab4</string>
+    <string name="lab4">CST2335 Laboratoire 4</string>
+    <string name="typehere">Tapez ici</string>
+    <string name="urgent">Urgente</string>
+    <string name="add">Ajouter</string>
+    <string name="yes">Oui</string>
+    <string name="no">Non</string>
+    <string name="confirmdelete">Voulez-vous supprimer ceci?</string>
+    <string name="selectedrow">Ligne: </string>
+</resources>
