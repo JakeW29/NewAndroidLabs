@@ -1,102 +1,117 @@
 package com.example.androidlabs;
 
-import android.content.ContentValues;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ListView;
-import android.widget.Switch;
-import android.database.Cursor;
-import androidx.appcompat.app.AlertDialog;
-import android.database.sqlite.SQLiteDatabase;
+import android.widget.ImageView;
+import android.widget.ProgressBar;
 import androidx.appcompat.app.AppCompatActivity;
-import java.util.ArrayList;
-import java.util.List;
+import org.json.JSONObject;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
 
-    private List<ToDoItems> todoList = new ArrayList<>();
-    private ToDoAdapter adapter;
-    private DatabaseHelper dbHelper;
-    private SQLiteDatabase db;
+    private static final String TAG = "MainActivity";
+    private ImageView imageView;
+    private ProgressBar progressBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        ListView listView = findViewById(R.id.todolist);
-        EditText editText = findViewById(R.id.todoedittext);
-        Switch urgentSwitch = findViewById(R.id.urgentswitch);
-        Button addButton = findViewById(R.id.addbutton);
+        imageView = findViewById(R.id.imageView);
+        progressBar = findViewById(R.id.progressBar);
 
-        //Initialize the database helper and get a writable database
-        dbHelper = new DatabaseHelper(this);
-        db = dbHelper.getWritableDatabase();
-
-        //Load existing item from the database
-        loadItemFromDatabase();
-
-        adapter = new ToDoAdapter(this, todoList);
-        listView.setAdapter(adapter);
-
-        addButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String todoText = editText.getText().toString();
-                boolean isUrgent = urgentSwitch.isChecked();
-                if (!todoText.isEmpty()) {
-                    ToDoItems todoItem = new ToDoItems(todoText, isUrgent);
-                    addItemToDatabase(todoItem);
-                    todoList.add(todoItem);
-                    adapter.notifyDataSetChanged();
-                    editText.setText("");
-                }
-            }
-        });
-
-        listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
-            @Override
-            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
-                new AlertDialog.Builder(MainActivity.this)
-                        .setTitle(getString(R.string.confirmdelete))
-                        .setMessage(getString(R.string.selectedrow) + position)
-                        .setPositiveButton(getString(R.string.yes), (dialog, which) -> {
-                            deleteItemFromDatabase(todoList.get(position));
-                            todoList.remove(position);
-                            adapter.notifyDataSetChanged();
-                        })
-                        .setNegativeButton(getString(R.string.no), null)
-                        .show();
-                return true;
-            }
-        });
+        new DogImages().execute();
     }
 
-    private void loadItemFromDatabase() {
+    private class DogImages extends AsyncTask<Void, Integer, Bitmap> {
+        private Bitmap dogImage;
 
-        Cursor cursor = db.query(DatabaseHelper.TABLE_NAME, null, null, null, null, null, null);
-        while (cursor.moveToNext()) {
-            String text = cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_TEXT));
-            boolean isUrgent = cursor.getInt(cursor.getColumnIndex(DatabaseHelper.COLUMN_URGENT)) == 1;
-            ToDoItems todoItem = new ToDoItems(text, isUrgent);
-            todoList.add(todoItem);
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            runOnUiThread(() -> progressBar.setVisibility(View.VISIBLE));
         }
-        cursor.close();
-    }
 
-    private void addItemToDatabase(ToDoItems todoItem) {
-        ContentValues values = new ContentValues();
-        values.put(DatabaseHelper.COLUMN_TEXT, todoItem.getText());
-        values.put(DatabaseHelper.COLUMN_URGENT, todoItem.isUrgent() ? 1 : 0);
-        db.insert(DatabaseHelper.TABLE_NAME, null, values);
-    }
+        @Override
+        protected Bitmap doInBackground(Void... voids) {
+            try {
+                while (true) {
+                    URL url = new URL("https://dog.ceo/api/breeds/image/random");
+                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                    InputStream inputStream = connection.getInputStream();
+                    StringBuilder json = new StringBuilder();
+                    int byteCharacter;
+                    while ((byteCharacter = inputStream.read()) != -1) {
+                        json.append((char) byteCharacter);
+                    }
 
-    private void deleteItemFromDatabase(ToDoItems todoItem) {
-        String selection = DatabaseHelper.COLUMN_TEXT + " = ? AND " + DatabaseHelper.COLUMN_URGENT + " = ?";
-        String[] selectionArgs = { todoItem.getText(), todoItem.isUrgent() ? "1" : "0" };
-        db.delete(DatabaseHelper.TABLE_NAME, selection, selectionArgs);
+                    JSONObject jsonObject = new JSONObject(json.toString());
+                    String imageUrl = jsonObject.getString("message");
+
+                    // Generate unique file name
+                    String fileName = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
+
+                    // Check if image exists
+                    File file = new File(getCacheDir(), fileName);
+                    if (file.exists()) {
+                        dogImage = BitmapFactory.decodeFile(file.getPath());
+                    } else {
+
+                        // Download the image
+                        URL imageDownloadUrl = new URL(imageUrl);
+                        HttpURLConnection imageConnection = (HttpURLConnection) imageDownloadUrl.openConnection();
+                        InputStream imageInputStream = imageConnection.getInputStream();
+                        dogImage = BitmapFactory.decodeStream(imageInputStream);
+
+                        // Save the downloaded image
+                        FileOutputStream fileOutputStream = new FileOutputStream(file);
+                        dogImage.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream);
+                        fileOutputStream.close();
+                    }
+
+                    publishProgress(0);
+                    for (int i = 0; i < 100; i++) {
+                        publishProgress(i);
+                        Thread.sleep(30);
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error downloading dog image", e);
+            }
+            return dogImage;
+        }
+
+        @Override
+        protected void onProgressUpdate(Integer... values) {
+            Log.d(TAG, "Progress: " + values[0]);
+            // If progress is at the start, update the ImageView with the new image
+            if (values[0] == 0) {
+                runOnUiThread(() -> {
+                    imageView.setImageBitmap(dogImage);
+                });
+            }
+            // Update the ProgressBar with current progress
+            runOnUiThread(() -> progressBar.setProgress(values[0]));
+        }
+
+        @Override
+        protected void onPostExecute(Bitmap bitmap) {
+            if (bitmap != null) {
+                imageView.setImageBitmap(bitmap);
+            } else {
+                Log.e(TAG, "Failed to download dog image");
+            }
+            runOnUiThread(() -> progressBar.setVisibility(View.INVISIBLE));
+        }
     }
 }
